@@ -17,16 +17,38 @@
 
 ## 2. app.py (OCR 서버 코드)
 
-Flask와 pytesseract를 사용하여 이미지를 인식하는 API를 작성합니다.
+Flask와 pytesseract, Naver OCR API를 사용하여 이미지를 인식하는 API를 작성합니다. 서버는 두 가지 OCR 엔드포인트를 제공합니다:
+
+### 2.1 기본 OCR 엔드포인트 (`/ocr`)
+
+Tesseract OCR을 사용하여 이미지에서 텍스트를 추출하는 기본 기능입니다.
+
+### 2.2 영양성분 분석 엔드포인트 (`/ocr/nutrition`)
+
+Naver OCR API를 사용하여 영양성분표 이미지를 분석하고, 구조화된 영양정보를 반환하는 고급 기능입니다.
 
 ```python
 from flask import Flask, request, jsonify
+from dotenv import load_dotenv
 from PIL import Image
 import pytesseract
 import io
+import requests
+import json
+import os
+import uuid
+import re
+
+load_dotenv()
 
 app = Flask(__name__)
 
+# Naver OCR API Gateway URL and Secret Key
+# IMPORTANT: Set these as environment variables in your deployment environment
+NAVER_OCR_APIGW_URL = os.getenv("NAVER_OCR_APIGW_URL")
+NAVER_OCR_SECRET_KEY = os.getenv("NAVER_OCR_SECRET_KEY")
+
+# 기존 Tesseract OCR 엔드포인트
 @app.route('/ocr', methods=['POST'])
 def perform_ocr():
     if 'file' not in request.files:
@@ -44,6 +66,11 @@ def perform_ocr():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+# Naver OCR API를 이용한 영양성분 분석 엔드포인트
+@app.route('/ocr/nutrition', methods=['POST'])
+def ocr_nutrition():
+    # ... (영양성분 분석 로직)
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
 ````
@@ -54,7 +81,11 @@ if __name__ == '__main__':
 Flask
 Pillow
 pytesseract
+python-dotenv
+requests
 ```
+
+> **참고:** `python-dotenv`와 `requests`는 Naver OCR API 연동을 위해 추가된 라이브러리입니다.
 
 ## 4. Dockerfile (이미지 빌드 스크립트)
 
@@ -103,18 +134,160 @@ docker rm -f ocr-server
 로컬 PC의 5001번 포트를 컨테이너의 5000번 포트에 연결하여 실행합니다. 5000번 포트가 이미 사용 중일 수 있으므로 5001번을 사용합니다.
 
 ```bash
-docker run -d -p 5001:5000 --name ocr-server ocr-server:latest
+docker run --env-file ./.env -d -p 5001:5000 ocr-server:latest
+```
+
+## 환경 변수 설정
+
+컨테이너 실행 시 .env 파일을 준비하고 --env-file ./.env 형태로 전달하세요. ./.env 경로는 docker run을 실행하는 디렉터리를 기준으로 합니다.
+
+필수 키:
+- NAVER_OCR_APIGW_URL
+- NAVER_OCR_SECRET_KEY
+
+예시(.env):
+```env
+NAVER_OCR_APIGW_URL=https://api.naver.com/ocr/endpoint
+NAVER_OCR_SECRET_KEY=your-secret-key
 ```
 
 ## 6. OCR API 테스트
 
-텍스트가 포함된 이미지 파일(`test.png`)을 준비하고 `curl` 명령어를 사용해 서버에 요청을 보냅니다.
+텍스트가 포함된 이미지 파일(`test.jpg`)을 준비하고 `curl` 명령어를 사용해 서버에 요청을 보냅니다.
+
+### 6.1 기본 OCR 테스트
 
 ```bash
-curl -X POST -F "file=@./test.png" http://localhost:5001/ocr
+curl -X POST -F "file=@./test.jpg" http://localhost:5001/ocr
 ```
 
 정상적으로 실행되면 이미지에서 인식된 텍스트가 JSON 형태로 반환됩니다.
+
+**응답 예시:**
+```json
+{
+  "text": "인식된 텍스트 내용"
+}
+```
+
+### 6.2 영양성분 분석 OCR 테스트
+
+영양성분표가 포함된 이미지 파일을 사용하여 테스트합니다.
+
+```bash
+curl -X POST -F "file=@./test_ko.jpg" http://localhost:5001/ocr/nutrition
+```
+
+**응답 예시:**
+```json
+{
+  "calories": {
+    "value": 250,
+    "unit": "kcal"
+  },
+  "sodium": {
+    "value": 400,
+    "unit": "mg"
+  },
+  "carbohydrates": {
+    "total": {
+      "value": 30,
+      "unit": "g"
+    },
+    "sugars": {
+      "value": 5,
+      "unit": "g"
+    }
+  },
+  "fat": {
+    "total": {
+      "value": 8,
+      "unit": "g"
+    },
+    "saturated_fat": {
+      "value": 3,
+      "unit": "g"
+    },
+    "trans_fat": {
+      "value": 0,
+      "unit": "g"
+    }
+  },
+  "cholesterol": {
+    "value": 10,
+    "unit": "mg"
+  },
+  "protein": {
+    "value": 12,
+    "unit": "g"
+  }
+}
+```
+
+> **주의:** 영양성분 분석 기능을 사용하려면 환경 변수에 Naver OCR API 키가 올바르게 설정되어 있어야 합니다.
+
+## 7. API 엔드포인트 상세 설명
+
+### 7.1 `/ocr` - 기본 OCR
+
+**메서드:** POST  
+**설명:** Tesseract OCR을 사용하여 이미지에서 텍스트를 추출합니다.  
+**지원 언어:** 한국어 + 영어 (`kor+eng`)
+
+**요청:**
+- Content-Type: `multipart/form-data`
+- 파라미터: `file` (이미지 파일)
+
+**응답:**
+```json
+{
+  "text": "추출된 텍스트"
+}
+```
+
+**오류 응답:**
+```json
+{
+  "error": "오류 메시지"
+}
+```
+
+### 7.2 `/ocr/nutrition` - 영양성분 분석
+
+**메서드:** POST  
+**설명:** Naver OCR API를 사용하여 영양성분표를 분석하고 구조화된 데이터를 반환합니다.  
+**필요 환경 변수:** `NAVER_OCR_APIGW_URL`, `NAVER_OCR_SECRET_KEY`
+
+**요청:**
+- Content-Type: `multipart/form-data`
+- 파라미터: `file` (영양성분표 이미지 파일)
+
+**응답:**
+영양성분 정보가 구조화된 JSON 형태로 반환됩니다. 인식 가능한 영양성분:
+- `calories` (열량, kcal)
+- `sodium` (나트륨, mg)
+- `carbohydrates` (탄수화물, g)
+  - `sugars` (당류, g)
+- `fat` (지방, g)
+  - `saturated_fat` (포화지방, g)
+  - `trans_fat` (트랜스지방, g)
+- `cholesterol` (콜레스테롤, mg)
+- `protein` (단백질, g)
+
+**오류 응답:**
+```json
+{
+  "error": "OCR API environment variables are not set."
+}
+```
+
+또는
+
+```json
+{
+  "error": "API request failed: [상세 오류 메시지]"
+}
+```
 
 
 ---
@@ -131,7 +304,7 @@ curl -X POST -F "file=@./test.png" http://localhost:5001/ocr
 
 ```bash
 docker login
-````
+```
 
 명령어를 실행하고 Docker Hub 사용자 이름과 비밀번호를 입력합니다.
 
