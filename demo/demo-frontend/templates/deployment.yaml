@@ -1,21 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "demo-frontend.fullname" . }}
+  name: demo-frontend-deployment
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "demo-frontend.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "demo-frontend.selectorLabels" . | nindent 6 }}
+      app: demo-frontend
   template:
     metadata:
       labels:
-        {{- include "demo-frontend.selectorLabels" . | nindent 8 }}
+        app: demo-frontend
     spec:
       containers:
-        - name: demo-frontend
+        - name: demo-frontend-container
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:

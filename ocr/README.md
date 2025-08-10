@@ -513,4 +513,18 @@ Pod이 **Running 상태**로 전환되면 문제가 해결된 것입니다.
 
 
 ## Memo 
+
+### env 적용
 kubectl -n backend create secret generic ocr-server-env --from-env-file=.env
+
+
+### kubectl context 전환
+#### 현재 사용 가능한 context 목록 확인
+kubectl config get-contexts
+ㄴ
+#### 특정 context를 기본으로 설정
+kubectl config use-context my-cluster-context
+
+
+### check EXTERNAL-IP
+kubectl get svc -n frontend -o wide

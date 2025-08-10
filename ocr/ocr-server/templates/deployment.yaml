@@ -1,23 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "ocr-server.fullname" . }}
+  name: ocr-server-deployment
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "ocr-server.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "ocr-server.selectorLabels" . | nindent 6 }}
+      app: ocr-server
   template:
     metadata:
       labels:
-        {{- include "ocr-server.selectorLabels" . | nindent 8 }}
+        app: ocr-server
     spec:
       containers:
-        - name: ocr-server
+        - name: ocr-server-container
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.envFrom }}
+          envFrom:
+            {{- toYaml .Values.envFrom | nindent 12 }}
+          {{- end }}
           ports:
             - containerPort: {{ .Values.containerPort }}
           {{- if .Values.env }}
