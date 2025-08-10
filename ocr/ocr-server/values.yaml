@@ -1,0 +1,31 @@
+# 배포 대상 네임스페이스는 설치 시 --namespace로 지정하는 것을 권장합니다.
+# 필요하면 여기서 기본값을 참고만 하세요.
+namespace: backend
+
+replicaCount: 1
+
+image:
+  repository: yunseocloud/ocr-server
+  tag: "v1"
+  pullPolicy: IfNotPresent
+
+containerPort: 5000
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 5000
+
+# 필요 시 리소스 제한을 켜세요.
+resources: {}
+#  limits:
+#    cpu: 500m
+#    memory: 512Mi
+#  requests:
+#    cpu: 100m
+#    memory: 128Mi
+
+# 추가 환경변수가 필요하면 여기에
+env: []
+#  - name: TZ
+#    value: Asia/Seoul
