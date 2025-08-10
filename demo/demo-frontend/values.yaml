@@ -1,0 +1,29 @@
+namespace: frontend
+
+replicaCount: 1
+
+image:
+  repository: yunseocloud/demo-frontend
+  tag: "v1"
+  pullPolicy: IfNotPresent
+
+containerPort: 8501
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8501
+
+resources: {}
+# limits/requests 필요시 열어 쓰세요.
+# resources:
+#   limits:
+#     cpu: 500m
+#     memory: 512Mi
+#   requests:
+#     cpu: 100m
+#     memory: 128Mi
+
+env: []
+# - name: TZ
+#   value: Asia/Seoul
