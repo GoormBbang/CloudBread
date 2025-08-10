@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: demo-frontend-container
-        image: yunseocloud/demo-frontend:v2
+        image: yunseocloud/demo-frontend:latest
         ports:
         - containerPort: 8501
 ---

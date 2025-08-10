@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: ocr-server-container
-        image: yunseocloud/ocr-server:v2
+        image: yunseocloud/ocr-server:latest
         ports:
         - containerPort: 5000
 ---

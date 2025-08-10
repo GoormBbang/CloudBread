@@ -6,7 +6,8 @@ import os
 # Docker 컨테이너에서 호스트 머신에 접근하기 위해 'host.docker.internal'을 사용합니다.
 # 이 주소는 demo-frontend 컨테이너가 호스트의 5001번 포트에서 실행 중인 ocr-server에 접근할 수 있도록 합니다.
 # 쿠버네티스 배포 시에는 이 값을 "http://ocr-server-service.backend:80"으로 변경해야 합니다.
-BASE_URL = "http://host.docker.internal:5001"
+# BASE_URL = "http://host.docker.internal:5001"
+BASE_URL = "http://ocr-server-service.backend:80"  # 쿠버네티스 배포 시 사용
 
 st.title("☁️ CloudBread OCR")
 st.write("이미지를 업로드하고 원하는 OCR 작업을 선택하세요.")

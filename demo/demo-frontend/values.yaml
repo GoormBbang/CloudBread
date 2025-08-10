@@ -4,7 +4,7 @@ replicaCount: 1
 
 image:
   repository: yunseocloud/demo-frontend
-  tag: "v2"
+  tag: "latest"
   pullPolicy: IfNotPresent
 
 containerPort: 8501
