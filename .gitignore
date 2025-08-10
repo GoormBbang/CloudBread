@@ -7,7 +7,7 @@ yarn-error.log*
 # Production builds
 /dist
 /build
-*.tgz
+#*.tgz
 *.tar.gz
 
 # Environment variables
