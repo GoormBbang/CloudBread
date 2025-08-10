@@ -6,7 +6,7 @@ replicaCount: 1
 
 image:
   repository: yunseocloud/ocr-server
-  tag: "lastet"
+  tag: "v2"
   pullPolicy: IfNotPresent
 
 containerPort: 5000

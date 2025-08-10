@@ -1,7 +1,7 @@
 # streamlit-frontend-deployment.yaml
 # 프론트엔드 Deployment와 Service 정의
 
-apiVersion: apps/latest
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: demo-frontend-deployment
@@ -18,11 +18,11 @@ spec:
     spec:
       containers:
       - name: demo-frontend-container
-        image: yunseocloud/demo-frontend:latest
+        image: yunseocloud/demo-frontend:v2
         ports:
         - containerPort: 8501
 ---
-apiVersion: latest
+apiVersion: v1
 kind: Service
 metadata:
   name: demo-frontend-service
