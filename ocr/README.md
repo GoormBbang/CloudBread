@@ -509,3 +509,8 @@ kubectl apply -f ocr-backend-deployment.yaml
 
 Pod이 **Running 상태**로 전환되면 문제가 해결된 것입니다.
 더 이상 `ImagePullBackOff`나 `no match for platform` 오류가 발생하지 않아야 합니다.
+
+
+
+## Memo 
+kubectl -n backend create secret generic ocr-server-env --from-env-file=.env

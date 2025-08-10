@@ -27,5 +27,8 @@ resources: {}
 
 # 추가 환경변수가 필요하면 여기에
 env: []
+envFrom:
+- secretRef:     # ConfigMap을 썼다면 secretRef 대신 configMapRef
+    name: ocr-server-env
 #  - name: TZ
 #    value: Asia/Seoul
