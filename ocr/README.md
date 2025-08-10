@@ -337,7 +337,7 @@ docker login
 `[Docker Hub ID]/ocr-server:v1` 형식으로 이미지에 태그를 지정합니다.
 
 ```bash
-docker tag ocr-server:latest [Docker Hub ID]/ocr-server:v1
+docker tag ocr-server:latest [Docker Hub ID]/ocr-server:latest
 ```
 
 
@@ -346,7 +346,7 @@ docker tag ocr-server:latest [Docker Hub ID]/ocr-server:v1
 태그를 지정한 이미지를 Docker Hub에 푸시합니다.
 
 ```bash
-docker push [Docker Hub ID]/ocr-server:v1
+docker push [Docker Hub ID]/ocr-server:latest
 ```
 
 ---

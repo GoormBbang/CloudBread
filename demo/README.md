@@ -157,7 +157,7 @@ if uploaded_file is not None:
 
     # 멀티-아키텍처 이미지 빌드 및 푸시
     docker buildx build --platform linux/amd64,linux/arm64 \
-      -t [Docker Hub ID]/demo-frontend:v1 --push .
+      -t [Docker Hub ID]/demo-frontend:latest --push .
     ```
     > `[Docker Hub ID]`를 실제 Docker Hub 사용자 ID로 변경하세요.
 
@@ -167,7 +167,7 @@ if uploaded_file is not None:
     # ...
       containers:
       - name: demo-frontend-container
-        image: [Docker Hub ID]/demo-frontend:v1 # <-- 이 부분을 수정
+        image: [Docker Hub ID]/demo-frontend:latest # <-- 이 부분을 수정
     # ...
     ```
 
