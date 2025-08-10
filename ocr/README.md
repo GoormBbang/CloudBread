@@ -181,46 +181,53 @@ curl -X POST -F "file=@./test_ko.jpg" http://localhost:5001/ocr/nutrition
 **응답 예시:**
 ```json
 {
-  "calories": {
-    "value": 250,
-    "unit": "kcal"
-  },
-  "sodium": {
-    "value": 400,
-    "unit": "mg"
-  },
-  "carbohydrates": {
-    "total": {
-      "value": 30,
-      "unit": "g"
+  "nutrition": {
+    "calories": {
+      "value": 505,
+      "unit": "kcal"
     },
-    "sugars": {
+    "sodium": {
+      "value": 1480,
+      "unit": "mg"
+    },
+    "carbohydrates": {
+      "total": {
+        "value": 84,
+        "unit": "g"
+      },
+      "sugars": {
+        "value": 6,
+        "unit": "g"
+      }
+    },
+    "fat": {
+      "total": {
+        "value": 15,
+        "unit": "g"
+      },
+      "saturated_fat": {
+        "value": 7,
+        "unit": "g"
+      },
+      "trans_fat": {
+        "value": 0,
+        "unit": "g"
+      }
+    },
+    "cholesterol": {
       "value": 5,
-      "unit": "g"
-    }
-  },
-  "fat": {
-    "total": {
-      "value": 8,
+      "unit": "mg"
+    },
+    "protein": {
+      "value": 9,
       "unit": "g"
     },
-    "saturated_fat": {
-      "value": 3,
-      "unit": "g"
-    },
-    "trans_fat": {
-      "value": 0,
-      "unit": "g"
+    "calcium": {
+      "value": 161,
+      "unit": "mg"
     }
   },
-  "cholesterol": {
-    "value": 10,
-    "unit": "mg"
-  },
-  "protein": {
-    "value": 12,
-    "unit": "g"
-  }
+  "full_text": "영양정보 총 내용량 120 g 505 kcal 1일 영양성분 기준치에 대한 비율 나트륨 1,480 mg 74% 탄수화물 84 g 26% 당류 6 g 6% 지방 15 g 28% 트랜스지방 0 g 포화지방 7 g 47% 콜레스테롤 5 mg미만 1% 단백질 9 g 16% 칼슘 161 mg 23% 1일 영양성분 기준치에 대한 비율(%)은 2,000 kcal 기준이므로 개인의 필요 열량에 따라 다를 수 있습니다."
 }
 ```
 
@@ -263,7 +270,19 @@ curl -X POST -F "file=@./test_ko.jpg" http://localhost:5001/ocr/nutrition
 - 파라미터: `file` (영양성분표 이미지 파일)
 
 **응답:**
-영양성분 정보가 구조화된 JSON 형태로 반환됩니다. 인식 가능한 영양성분:
+영양성분 정보가 구조화된 JSON 형태로 반환됩니다. 응답에는 `nutrition` 객체와 `full_text` 필드가 포함됩니다.
+
+**응답 구조:**
+```json
+{
+  "nutrition": {
+    // 영양성분 정보
+  },
+  "full_text": "OCR로 추출된 전체 텍스트 (디버깅용)"
+}
+```
+
+**인식 가능한 영양성분:**
 - `calories` (열량, kcal)
 - `sodium` (나트륨, mg)
 - `carbohydrates` (탄수화물, g)
@@ -273,6 +292,11 @@ curl -X POST -F "file=@./test_ko.jpg" http://localhost:5001/ocr/nutrition
   - `trans_fat` (트랜스지방, g)
 - `cholesterol` (콜레스테롤, mg)
 - `protein` (단백질, g)
+- `calcium` (칼슘, mg) **[NEW]**
+
+**개선사항:**
+- 쉼표가 포함된 숫자 (예: "1,480 mg") 처리 가능
+- 디버깅용 전체 OCR 텍스트 제공
 
 **오류 응답:**
 ```json

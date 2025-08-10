@@ -1,269 +1,188 @@
-# Streamlit 프론트엔드 이미지 생성 및 로컬 테스트
+# Streamlit 프론트엔드: CloudBread OCR
 
-이 문서는 Streamlit 기반의 OCR 프론트엔드 애플리케이션을 Docker 이미지로 만들고, 로컬에서 백엔드와 연동하여 테스트하는 과정을 담고 있습니다.
+이 문서는 Streamlit 기반의 OCR 프론트엔드 애플리케이션을 Docker 이미지로 만들고, 백엔드와 연동하여 테스트 및 배포하는 과정을 안내합니다.
+
+## 주요 기능
+
+- **일반 OCR**: Tesseract를 사용하여 이미지에서 텍스트를 추출합니다.
+- **영양성분 분석**: Naver OCR API를 통해 영양성분표 이미지를 분석하고, 구조화된 JSON 데이터로 결과를 제공합니다.
+  - 칼로리, 나트륨, 탄수화물, 당류, 지방, 포화지방, 트랜스지방, 콜레스테롤, 단백질, **칼슘** 정보 추출
+  - 사용자 친화적인 메트릭 형태로 영양성분 표시
+  - 디버깅용 전체 OCR 텍스트 제공
 
 ## 1. 프로젝트 파일 구성
 
-`demo-frontend` 폴더를 만들고 아래와 같이 파일을 구성합니다.
-
 ```
-
-/demo-frontend/
+/demo/
 ├── app.py            # Streamlit 프론트엔드 코드
-├── requirements.txt  # 필요한 Python 라이브러리 목록
-└── Dockerfile        # 컨테이너 이미지를 만들기 위한 스크립트
-
-````
+├── requirements.txt  # Python 라이브러리 목록
+├── Dockerfile        # 컨테이너 이미지 빌드 스크립트
+└── demo-frontend-deployment.yaml # Kubernetes 배포 정의
+```
 
 ## 2. app.py (Streamlit 프론트엔드 코드)
 
-백엔드 서버로 POST 요청을 보내는 Streamlit 웹 앱을 작성합니다.
+사용자가 OCR 모드를 선택하고 이미지를 업로드하면, 백엔드 서버로 요청을 보내고 결과를 표시합니다.
 
 ```python
 import streamlit as st
 import requests
 import json
+import os
 
-# 백엔드 서버 URL (로컬 테스트용)
-# 쿠버네티스 배포 시: http://ocr-server-service.ocr-backend/ocr
-BACKEND_URL = "http://localhost:5001/ocr"
+# Docker 컨테이너에서 호스트 머신에 접근하기 위해 'host.docker.internal'을 사용합니다.
+# 이 주소는 demo-frontend 컨테이너가 호스트의 5001번 포트에서 실행 중인 ocr-server에 접근할 수 있도록 합니다.
+# 쿠버네티스 배포 시에는 이 값을 "http://ocr-server-service.backend:80"으로 변경해야 합니다.
+BASE_URL = "http://host.docker.internal:5001"
 
-st.title("OCR Streamlit 애플리케이션")
-st.write("이미지를 업로드하고 OCR 버튼을 누르면 텍스트를 인식합니다.")
+st.title("☁️ CloudBread OCR")
+st.write("이미지를 업로드하고 원하는 OCR 작업을 선택하세요.")
 
-uploaded_file = st.file_uploader("이미지를 업로드하세요...", type=["png", "jpg", "jpeg"])
+# OCR 모드 선택
+ocr_mode = st.radio(
+    "OCR 모드를 선택하세요:",
+    ("일반 OCR", "영양성분 분석")
+)
 
-if uploaded_file is not None:
-    st.image(uploaded_file, caption="업로드된 이미지", use_column_width=True)
-    
-    if st.button("OCR 실행"):
-        files = {'file': uploaded_file.getvalue()}
-        
-        try:
-            response = requests.post(BACKEND_URL, files=files)
-            
-            if response.status_code == 200:
-                result_text = response.json().get('text')
-                st.subheader("인식 결과:")
-                st.text(result_text)
-            else:
-                st.error(f"백엔드 서버 오류: {response.status_code}")
-                st.write(response.json())
-        except requests.exceptions.ConnectionError:
-            st.error("백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요.")
-````
-
-> 참고: `BACKEND_URL`을 `localhost:5001`로 지정하여 이전에 실행한 OCR 백엔드 컨테이너와 통신하도록 설정했습니다.
-
-## 3. requirements.txt (필요 라이브러리)
-
-```
-streamlit
-requests
-```
-
-## 4. Dockerfile (이미지 빌드 스크립트)
-
-`python:3.12-slim` 이미지를 기반으로 Streamlit을 설치하고 웹 앱을 실행합니다.
-
-```dockerfile
-FROM python:3.12-slim
-
-WORKDIR /app
-
-COPY . .
-
-RUN pip install -r requirements.txt
-
-EXPOSE 8501
-
-CMD ["streamlit", "run", "app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
-```
-
-## 5. Docker 이미지 빌드 및 실행
-
-**이미지 빌드:**
-`demo-frontend` 폴더에서 아래 명령어를 실행합니다.
-
-```bash
-docker build -t demo-frontend:latest .
-```
-
-**기존 컨테이너 삭제 (선택 사항):**
-
-```bash
-docker rm -f demo-frontend
-```
-
-**컨테이너 실행:**
-로컬 PC의 8080번 포트를 컨테이너의 8501번 포트에 연결하여 실행합니다.
-
-```bash
-docker run -d -p 8501:8501 --name demo-frontend demo-frontend:latest
-```
-
-## 6. 프론트엔드 테스트
-
-백엔드 컨테이너(`ocr-server`)가 5001번 포트에서 실행 중인지 확인하세요.
-웹 브라우저를 열고 [http://localhost:8501](http://localhost:8501)에 접속하여 프론트엔드 앱을 테스트합니다.
-
----
-
-<br>
-<br>
-<br>
-<br>
-
-# Kubernetes에 Streamlit 프론트엔드 배포하기
-
-## 1단계: 프론트엔드 코드 수정 및 이미지 빌드/푸시
-
-### 🔧 app.py 수정
-
-`demo` 폴더의 `app.py` 파일을 열고, **백엔드 서버 URL을 Kubernetes용으로 변경**합니다.
-
-```python
-import streamlit as st
-import requests
-import json
-
-# 쿠버네티스 배포용 백엔드 URL
-# [서비스이름].[네임스페이스이름] 형태의 DNS 주소를 사용
-BACKEND_URL = "http://ocr-server-service.backend:80/ocr"
-
-st.title("OCR Streamlit 애플리케이션")
-st.write("이미지를 업로드하고 OCR 버튼을 누르면 텍스트를 인식합니다.")
-
-uploaded_file = st.file_uploader("이미지를 업로드하세요...", type=["png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("이미지 업로드", type=["png", "jpg", "jpeg"])
 
 if uploaded_file is not None:
-    st.image(uploaded_file, caption="업로드된 이미지", use_column_width=True)
+    st.image(uploaded_file, caption="업로드된 이미지", use_container_width=True)
 
     if st.button("OCR 실행"):
-        files = {'file': uploaded_file.getvalue()}
+        files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+        endpoint = ""
 
-        try:
-            response = requests.post(BACKEND_URL, files=files)
+        if ocr_mode == "일반 OCR":
+            endpoint = f"{BASE_URL}/ocr"
+        elif ocr_mode == "영양성분 분석":
+            endpoint = f"{BASE_URL}/ocr/nutrition"
 
-            if response.status_code == 200:
-                result_text = response.json().get('text')
-                st.subheader("인식 결과:")
-                st.text(result_text)
-            else:
-                st.error(f"백엔드 서버 오류: {response.status_code}")
-                st.write(response.json())
-        except requests.exceptions.ConnectionError:
-            st.error("백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요.")
+        if endpoint:
+            try:
+                with st.spinner('인식 중...'):
+                    response = requests.post(endpoint, files=files)
+                
+                if response.status_code == 200:
+                    st.subheader("✅ 인식 결과")
+                    if ocr_mode == "일반 OCR":
+                        result_text = response.json().get('text')
+                        st.text_area("추출된 텍스트", result_text, height=200)
+                    elif ocr_mode == "영양성분 분석":
+                        result_data = response.json()
+                        
+                        # 영양성분 데이터 표시
+                        if 'nutrition' in result_data:
+                            st.subheader("🍎 영양성분 정보")
+                            nutrition = result_data['nutrition']
+                            
+                            # 칼로리
+                            if 'calories' in nutrition:
+                                st.metric("칼로리", f"{nutrition['calories']['value']} {nutrition['calories']['unit']}")
+                            
+                            # 주요 영양성분을 컬럼으로 나누어 표시
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                if 'sodium' in nutrition:
+                                    st.metric("나트륨", f"{nutrition['sodium']['value']} {nutrition['sodium']['unit']}")
+                                if 'carbohydrates' in nutrition:
+                                    carbs = nutrition['carbohydrates']['total']
+                                    st.metric("탄수화물", f"{carbs['value']} {carbs['unit']}")
+                                    if 'sugars' in nutrition['carbohydrates']:
+                                        sugars = nutrition['carbohydrates']['sugars']
+                                        st.metric("당류", f"{sugars['value']} {sugars['unit']}")
+                                if 'protein' in nutrition:
+                                    st.metric("단백질", f"{nutrition['protein']['value']} {nutrition['protein']['unit']}")
+                            
+                            with col2:
+                                if 'fat' in nutrition:
+                                    fat = nutrition['fat']['total']
+                                    st.metric("지방", f"{fat['value']} {fat['unit']}")
+                                    if 'saturated_fat' in nutrition['fat']:
+                                        sat_fat = nutrition['fat']['saturated_fat']
+                                        st.metric("포화지방", f"{sat_fat['value']} {sat_fat['unit']}")
+                                    if 'trans_fat' in nutrition['fat']:
+                                        trans_fat = nutrition['fat']['trans_fat']
+                                        st.metric("트랜스지방", f"{trans_fat['value']} {trans_fat['unit']}")
+                                if 'cholesterol' in nutrition:
+                                    st.metric("콜레스테롤", f"{nutrition['cholesterol']['value']} {nutrition['cholesterol']['unit']}")
+                                if 'calcium' in nutrition:
+                                    st.metric("칼슘", f"{nutrition['calcium']['value']} {nutrition['calcium']['unit']}")
+                        
+                        # 전체 OCR 텍스트 표시 (디버깅용)
+                        if 'full_text' in result_data:
+                            with st.expander("🔍 OCR 전체 텍스트 (디버깅용)"):
+                                st.text_area("추출된 전체 텍스트", result_data['full_text'], height=200)
+                        
+                        # 원본 JSON 데이터도 확장 가능한 영역에 표시
+                        with st.expander("📄 원본 JSON 데이터"):
+                            st.json(result_data)
+                else:
+                    st.error(f"백엔드 서버 오류: {response.status_code}")
+                    try:
+                        st.error(response.json().get('error'))
+                    except json.JSONDecodeError:
+                        st.error("응답 내용을 JSON으로 파싱할 수 없습니다.")
+                        st.text(response.text)
+
+            except requests.exceptions.RequestException as e:
+                st.error(f"백엔드 서버에 연결할 수 없습니다: {e}")
 ```
 
-### 🏗️ 멀티-아키텍처 이미지 빌드 및 푸시
+> **참고**: `BASE_URL`은 쿠버네티스 클러스터 내에서 백엔드 서비스(`ocr-server-service`)를 찾기 위한 주소입니다. 로컬에서 테스트할 경우, 이 값을 `http://localhost:5001`로 변경하여 사용하세요.
 
-`demo` 폴더에서 다음 명령어를 실행합니다:
+## 3. 로컬 테스트
 
-```bash
-# buildx 빌더가 이미 설정되어 있다고 가정
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -t [Docker Hub ID]/demo-frontend:v1 --push .
-```
+1.  **백엔드 서버 실행**: `ocr` 디렉토리의 `README.md`를 참고하여 백엔드 Docker 컨테이너를 실행합니다.
+2.  **프론트엔드 실행**: `demo` 디렉토리에서 아래 명령어를 실행하여 프론트엔드 Docker 컨테이너를 빌드하고 실행합니다.
 
-> 📌 `[Docker Hub ID]` 부분을 실제 Docker Hub 사용자 ID로 변경하세요.
+    ```bash
+    # Docker 이미지 빌드
+    docker build -t demo-frontend:latest .
 
----
+    # Docker 컨테이너 실행 (8501 포트 사용)
+    docker run -d -p 8501:8501 demo-frontend:latest
+    ```
+3.  **웹 브라우저 접속**: [http://localhost:8501](http://localhost:8501)에 접속하여 애플리케이션을 테스트합니다.
 
-## 2단계: frontend 네임스페이스 및 리소스 YAML 파일 작성
+## 4. Kubernetes 배포
 
-이제 프론트엔드를 Kubernetes에 배포하기 위한 YAML 파일을 작성합니다.
-**Service는 외부 접속을 허용하기 위해 `LoadBalancer` 타입**으로 설정합니다.
+1.  **이미지 빌드 및 푸시**: 멀티-아키텍처를 지원하는 이미지를 빌드하여 Docker Hub에 푸시합니다.
 
-### 📄 `demo-frontend-deployment.yaml`
+    ```bash
+    # buildx 빌더 생성 및 사용 (최초 1회)
+    docker buildx create --name mybuilder
+    docker buildx use mybuilder
 
-```yaml
-# demo-frontend-deployment.yaml
-# 프론트엔드 Deployment와 Service 정의
+    # 멀티-아키텍처 이미지 빌드 및 푸시
+    docker buildx build --platform linux/amd64,linux/arm64 \
+      -t [Docker Hub ID]/demo-frontend:v1 --push .
+    ```
+    > `[Docker Hub ID]`를 실제 Docker Hub 사용자 ID로 변경하세요.
 
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: demo-frontend-deployment
-  namespace: frontend
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: demo-frontend
-  template:
-    metadata:
-      labels:
-        app: demo-frontend
-    spec:
+2.  **배포 파일 수정**: `demo-frontend-deployment.yaml` 파일의 `image` 필드를 방금 푸시한 이미지 주소로 변경합니다.
+
+    ```yaml
+    # ...
       containers:
       - name: demo-frontend-container
-        image: [Docker Hub ID]/demo-frontend:v1 # ← 빌드한 이미지 주소
-        ports:
-        - containerPort: 8501
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: demo-frontend-service
-  namespace: frontend
-spec:
-  selector:
-    app: demo-frontend
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8501
-  type: LoadBalancer
-```
+        image: [Docker Hub ID]/demo-frontend:v1 # <-- 이 부분을 수정
+    # ...
+    ```
 
-> ⚠️ 반드시 `image:` 항목의 주소를 `[Docker Hub ID]/demo-frontend:v1`로 변경하세요.
+3.  **Kubernetes에 배포**:
 
----
+    ```bash
+    # frontend 네임스페이스 생성
+    kubectl create namespace frontend
 
-## 3단계: Kubernetes에 배포하기
+    # Deployment 및 Service 배포
+    kubectl apply -f demo-frontend-deployment.yaml
+    ```
 
-### 🌱 네임스페이스 생성
+4.  **외부 접속 확인**: `LoadBalancer` 타입의 서비스에 외부 IP가 할당되면, 해당 IP로 접속하여 배포된 애플리케이션을 확인할 수 있습니다.
 
-```bash
-kubectl create namespace frontend
-```
-
-### 🚀 YAML 파일 적용
-
-```bash
-kubectl apply -f demo-frontend-deployment.yaml
-```
-
----
-
-## 4단계: 배포 상태 및 외부 접속 확인
-
-### ✅ 배포 리소스 확인
-
-```bash
-kubectl get all -n frontend
-```
-
-* `Pod`의 `STATUS`가 `Running`인지 확인
-* `Service`의 `EXTERNAL-IP`가 할당되었는지 확인
-  (LoadBalancer 타입은 IP 할당까지 약간의 시간이 걸릴 수 있음)
-
-### 🌐 웹 브라우저 접속
-
-```bash
-kubectl get services -n frontend
-```
-
-* `demo-frontend-service`의 `EXTERNAL-IP` 값을 확인
-* 브라우저에서 `http://[EXTERNAL-IP]`로 접속하면 Streamlit 앱에 접속 가능
-
----
-
-## ✅ 결과
-
-* 프론트엔드는 `frontend` 네임스페이스에
-* 백엔드는 `backend` 네임스페이스에 각각 배포됨
-* 프론트엔드 앱을 통해 OCR 기능 사용 가능
-
-이제 완전한 OCR 애플리케이션이 쿠버네티스 환경에서 정상 작동합니다 🎉
+    ```bash
+    kubectl get services -n frontend
+    ```

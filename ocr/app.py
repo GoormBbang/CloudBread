@@ -92,8 +92,14 @@ def ocr_nutrition():
 
             # 영양성분 정보 구조화
             nutrition_data = parse_nutrition_text(full_text)
+            
+            # 디버깅용으로 전체 텍스트도 포함
+            result = {
+                "nutrition": nutrition_data,
+                "full_text": full_text.strip()
+            }
 
-            return jsonify(nutrition_data), 200
+            return jsonify(result), 200
 
         except requests.exceptions.RequestException as e:
             return jsonify({"error": f"API request failed: {e}"}), 500
@@ -109,53 +115,62 @@ def parse_nutrition_text(text):
     
     nutrition_data = {}
     
+    # 숫자에서 쉼표 제거하는 헬퍼 함수
+    def extract_number(match_str):
+        return int(match_str.replace(',', ''))
+    
     # Example of how to parse the text. This is highly dependent on the OCR output format.
     # This is a very basic example and will need to be improved.
     
     # 칼로리 (kcal)
-    calories_match = re.search(r'열량\s*(\d+)\s*kcal', text)
+    calories_match = re.search(r'열량\s*([\d,]+)\s*kcal', text)
     if calories_match:
-        nutrition_data['calories'] = {'value': int(calories_match.group(1)), 'unit': 'kcal'}
+        nutrition_data['calories'] = {'value': extract_number(calories_match.group(1)), 'unit': 'kcal'}
 
     # 나트륨 (mg)
-    sodium_match = re.search(r'나트륨\s*(\d+)\s*mg', text)
+    sodium_match = re.search(r'나트륨\s*([\d,]+)\s*mg', text)
     if sodium_match:
-        nutrition_data['sodium'] = {'value': int(sodium_match.group(1)), 'unit': 'mg'}
+        nutrition_data['sodium'] = {'value': extract_number(sodium_match.group(1)), 'unit': 'mg'}
 
     # 탄수화물 (g)
-    carbs_match = re.search(r'탄수화물\s*(\d+)\s*g', text)
+    carbs_match = re.search(r'탄수화물\s*([\d,]+)\s*g', text)
     if carbs_match:
-        nutrition_data['carbohydrates'] = {'total': {'value': int(carbs_match.group(1)), 'unit': 'g'}}
+        nutrition_data['carbohydrates'] = {'total': {'value': extract_number(carbs_match.group(1)), 'unit': 'g'}}
         
         # 당류 (g)
-        sugars_match = re.search(r'당류\s*(\d+)\s*g', text)
+        sugars_match = re.search(r'당류\s*([\d,]+)\s*g', text)
         if sugars_match:
-            nutrition_data['carbohydrates']['sugars'] = {'value': int(sugars_match.group(1)), 'unit': 'g'}
+            nutrition_data['carbohydrates']['sugars'] = {'value': extract_number(sugars_match.group(1)), 'unit': 'g'}
 
     # 지방 (g)
-    fat_match = re.search(r'지방\s*(\d+)\s*g', text)
+    fat_match = re.search(r'지방\s*([\d,]+)\s*g', text)
     if fat_match:
-        nutrition_data['fat'] = {'total': {'value': int(fat_match.group(1)), 'unit': 'g'}}
+        nutrition_data['fat'] = {'total': {'value': extract_number(fat_match.group(1)), 'unit': 'g'}}
         
         # 포화지방 (g)
-        sat_fat_match = re.search(r'포화지방\s*(\d+)\s*g', text)
+        sat_fat_match = re.search(r'포화지방\s*([\d,]+)\s*g', text)
         if sat_fat_match:
-            nutrition_data['fat']['saturated_fat'] = {'value': int(sat_fat_match.group(1)), 'unit': 'g'}
+            nutrition_data['fat']['saturated_fat'] = {'value': extract_number(sat_fat_match.group(1)), 'unit': 'g'}
             
         # 트랜스지방 (g)
-        trans_fat_match = re.search(r'트랜스지방\s*(\d+)\s*g', text)
+        trans_fat_match = re.search(r'트랜스지방\s*([\d,]+)\s*g', text)
         if trans_fat_match:
-            nutrition_data['fat']['trans_fat'] = {'value': int(trans_fat_match.group(1)), 'unit': 'g'}
+            nutrition_data['fat']['trans_fat'] = {'value': extract_number(trans_fat_match.group(1)), 'unit': 'g'}
 
     # 콜레스테롤 (mg)
-    cholesterol_match = re.search(r'콜레스테롤\s*(\d+)\s*mg', text)
+    cholesterol_match = re.search(r'콜레스테롤\s*([\d,]+)\s*mg', text)
     if cholesterol_match:
-        nutrition_data['cholesterol'] = {'value': int(cholesterol_match.group(1)), 'unit': 'mg'}
+        nutrition_data['cholesterol'] = {'value': extract_number(cholesterol_match.group(1)), 'unit': 'mg'}
 
     # 단백질 (g)
-    protein_match = re.search(r'단백질\s*(\d+)\s*g', text)
+    protein_match = re.search(r'단백질\s*([\d,]+)\s*g', text)
     if protein_match:
-        nutrition_data['protein'] = {'value': int(protein_match.group(1)), 'unit': 'g'}
+        nutrition_data['protein'] = {'value': extract_number(protein_match.group(1)), 'unit': 'g'}
+    
+    # 칼슘 (mg)
+    calcium_match = re.search(r'칼슘\s*([\d,]+)\s*mg', text)
+    if calcium_match:
+        nutrition_data['calcium'] = {'value': extract_number(calcium_match.group(1)), 'unit': 'mg'}
 
     return nutrition_data
 
