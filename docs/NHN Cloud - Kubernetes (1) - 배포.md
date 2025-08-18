@@ -2,10 +2,6 @@
 
 [NHN Cloud CONSOLE](https://k-paas.console.nhncloud.com/project/KcFiGwCb/container/nhn-kubernetes-service-nks)
 
-ID: contest2
-PW: contest2!
-
-
 ---
 ## 2. kubeconfig.yaml 
 
