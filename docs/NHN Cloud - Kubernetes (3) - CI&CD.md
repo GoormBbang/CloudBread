@@ -2,10 +2,6 @@
 
 [NHN Cloud CONSOLE](https://k-paas.console.nhncloud.com/project/KcFiGwCb/dev-tools/pipeline#pipeline-management)
 
-ID: contest2
-PW: contest2!
-
-
 ---
 ## 2. CD 파이프라인
 
