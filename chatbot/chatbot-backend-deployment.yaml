@@ -1,0 +1,59 @@
+# chatbot-backend-deployment.yaml
+# ChatBot 서버의 Deployment와 Service를 하나의 파일로 정의
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatbot-server-deployment
+  namespace: backend # backend 네임스페이스에 배포
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chatbot-server
+  template:
+    metadata:
+      labels:
+        app: chatbot-server
+    spec:
+      containers:
+      - name: chatbot-server-container
+        image: yunseocloud/chatbot-server:latest
+        envFrom:
+            - secretRef:     # Secret에서 환경 변수 로드
+                name: chatbot-server-env
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatbot-server-service
+  namespace: backend # backend 네임스페이스에 배포
+spec:
+  selector:
+    app: chatbot-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP # 클러스터 내부에서만 접근 가능하도록 설정
