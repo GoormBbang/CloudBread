@@ -23,7 +23,11 @@ import base64
 
 load_dotenv()
 
-app = FastAPI(title="CloudBread ChatBot API", version="1.0.0")
+app = FastAPI(
+    title="CloudBread ChatBot API",
+    version="1.0.0",
+    root_path="/api/chatbot"
+)
 
 # CORS 설정
 app.add_middleware(
