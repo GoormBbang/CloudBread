@@ -1,28 +1,20 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
-from enum import Enum
-
-
-class MealType(str, Enum):
-    BREAKFAST = "BREAKFAST"
-    LUNCH = "LUNCH"
-    DINNER = "DINNER"
-    SNACK = "SNACK"
 
 
 # Request Models
 class FoodHistory(BaseModel):
-    meal_type: str
-    food_name: str
-    intake_percent: int
-    created_at: datetime
+    mealType: str
+    foodName: str
+    intakePercent: int
+    createdAt: datetime
 
 
 class User(BaseModel):
-    birth_date: str
-    due_date: str
-    other_health_factors: Optional[List[str]] = []
+    birthDate: str
+    dueDate: str
+    otherHealthFactors: Optional[List[str]] = []
 
 
 class RecommendRequest(BaseModel):
@@ -30,7 +22,7 @@ class RecommendRequest(BaseModel):
     healths: List[str] = []
     allergies: List[str] = []
     diets: List[str] = []
-    food_history: List[FoodHistory] = []
+    foodHistory: List[FoodHistory] = []
 
 
 # Response Models
@@ -48,8 +40,15 @@ class MealSection(BaseModel):
     items: List[FoodItem]
 
 
-class RecommendResponse(BaseModel):
+class RecommendResult(BaseModel):
     planId: int
     planDate: str
     sections: List[MealSection]
+
+
+class RecommendResponse(BaseModel):
+    isSuccess: bool
+    code: str
+    message: str
+    result: RecommendResult
 
