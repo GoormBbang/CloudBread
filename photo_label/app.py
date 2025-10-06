@@ -48,7 +48,7 @@ async def label_photo(request: PhotoLabelRequest):
         
         # 2. 백엔드로 결과 전송
         try:
-            await send_result_to_backend(
+            send_result_to_backend(
                 request.photoAnalysisId,
                 label,
                 confidence,

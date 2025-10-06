@@ -1,5 +1,5 @@
 import os
-import httpx
+import requests
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
@@ -63,19 +63,18 @@ async def analyze_food_image(image_url: str) -> tuple[str, float]:
     return label, confidence
 
 
-async def send_result_to_backend(photo_analysis_id: int, label: str, confidence: float, backend_url: str):
+def send_result_to_backend(photo_analysis_id: int, label: str, confidence: float, backend_url: str):
     """
     분석 결과를 백엔드로 전송
     """
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{backend_url}/api/ai/photo-analyses/{photo_analysis_id}/label",
-            json={
-                "label": label,
-                "confidence": confidence
-            },
-            timeout=30.0
-        )
-        response.raise_for_status()
-        return response.json()
+    response = requests.post(
+        f"{backend_url}/api/ai/photo-analyses/{photo_analysis_id}/label",
+        json={
+            "label": label,
+            "confidence": confidence
+        },
+        timeout=30.0
+    )
+    response.raise_for_status()
+    return response.json()
 
