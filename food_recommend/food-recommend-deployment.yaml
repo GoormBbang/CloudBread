@@ -21,6 +21,9 @@ spec:
         image: yunseocloud/food-recommend-server:latest
         ports:
         - containerPort: 8000
+        env:
+        - name: TZ
+          value: "Asia/Seoul"
         resources:
           requests:
             memory: "512Mi"

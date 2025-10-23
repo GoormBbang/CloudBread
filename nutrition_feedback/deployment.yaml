@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nutrition-feedback-server
+  namespace: ai-services
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nutrition-feedback-server
+  template:
+    metadata:
+      labels:
+        app: nutrition-feedback-server
+    spec:
+      containers:
+      - name: nutrition-feedback-server
+        image: yunseocloud/nutrition-feedback-server:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: TZ
+          value: "Asia/Seoul"
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-secret
+              key: api-key
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nutrition-feedback-service
+  namespace: ai-services
+spec:
+  type: ClusterIP
+  selector:
+    app: nutrition-feedback-server
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
