@@ -1,10 +1,31 @@
+# Web Framework
 fastapi
+uvicorn
+python-multipart
+
+# LangChain Core
 langchain
 langchain-openai
 langchain-community
 langchain-core
-python-multipart
-uvicorn
+langchain-text-splitters
+
+# LangGraph for Agent Workflow
+langgraph
+langgraph-checkpoint-sqlite
+
+# Vector Store & Embeddings
+faiss-cpu
+tiktoken
+
+# Database
+pymysql
+sqlalchemy
+
+# Utilities
 pillow
 python-dotenv
 pydantic
+httpx
+aiohttp
+dotenv

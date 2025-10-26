@@ -10,18 +10,26 @@ from dotenv import load_dotenv
 
 # LangChain imports
 from langchain_openai import ChatOpenAI
-from langchain.memory import ConversationBufferMemory
-from langchain.schema import HumanMessage, AIMessage, SystemMessage
-from langchain.chains import ConversationChain
-from langchain.prompts import PromptTemplate
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, SystemMessage
 
 # Image processing
 from PIL import Image
 import io
 import base64
+import asyncio
+
+# Agent imports
+from agent import get_agent
+from vector_store import get_knowledge_base
 
 load_dotenv()
+
+# 벡터 스토어 초기화 (앱 시작 시)
+try:
+    kb = get_knowledge_base()
+    print("✅ 지식 베이스 초기화 완료")
+except Exception as e:
+    print(f"⚠️ 지식 베이스 초기화 실패: {e}")
 
 app = FastAPI(
     title="CloudBread ChatBot API",
@@ -59,55 +67,18 @@ class MultiModalRequest(BaseModel):
     session_id: Optional[str] = None
     image_base64: Optional[str] = None
 
-# 세션 기반 메모리 관리
+# 세션 기반 메모리 관리 (에이전트 기반으로 간소화)
 class SessionManager:
     def __init__(self):
         self.sessions: Dict[str, Dict[str, Any]] = {}
+        self.agent = get_agent()
     
     def get_or_create_session(self, session_id: Optional[str] = None) -> str:
         if session_id is None:
             session_id = str(uuid.uuid4())
         
         if session_id not in self.sessions:
-            # OpenAI LLM 초기화
-            llm = ChatOpenAI(
-                model="gpt-5-nano",
-                temperature=0.7,
-                openai_api_key=os.getenv("OPENAI_API_KEY")
-            )
-            
-            # 대화 히스토리 관리를 위한 메모리
-            memory = ConversationBufferMemory(
-                return_messages=True,
-                memory_key="chat_history"
-            )
-            
-            # 프롬프트 템플릿 설정
-            prompt = ChatPromptTemplate.from_messages([
-                SystemMessage(content="""
-당신은 CloudBread의 친근하고 도움이 되는 AI 어시스턴트입니다.
-사용자의 질문에 정확하고 유용한 답변을 제공하며, 
-이미지가 포함된 경우 이미지의 내용을 분석하여 관련된 정보를 제공합니다.
-항상 한국어로 대답하며, 예의 바르고 친근한 톤을 유지합니다.
-당신의 역할은 임산부 맞춤 음식, 영양, 건강 관리 전문가입니다. 
-사용자는 임산부이며 임산부의 건강과 영양에 최적화된 맞춤형 답변을 제공해야 합니다.
-"""),
-                MessagesPlaceholder(variable_name="chat_history"),
-                ("human", "{input}")
-            ])
-            
-            # 대화 체인 생성
-            conversation = ConversationChain(
-                llm=llm,
-                memory=memory,
-                prompt=prompt,
-                verbose=True
-            )
-            
             self.sessions[session_id] = {
-                "conversation": conversation,
-                "memory": memory,
-                "llm": llm,
                 "created_at": datetime.now(),
                 "message_history": []
             }
@@ -140,7 +111,7 @@ async def health_check():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
-    텍스트 기반 채팅 엔드포인트
+    텍스트 기반 채팅 엔드포인트 (에이전트 기반)
     """
     try:
         # 세션 생성 또는 가져오기
@@ -153,28 +124,26 @@ async def chat(request: ChatRequest):
         # 사용자 메시지를 히스토리에 추가
         session_manager.add_message_to_history(session_id, "user", request.message)
         
-        # LangChain 대화 체인을 통해 응답 생성
-        conversation = session_data["conversation"]
+        # 에이전트 실행
+        agent_result = await session_manager.agent.run(
+            user_message=request.message,
+            thread_id=session_id
+        )
         
-        # 시스템 프롬프트가 제공된 경우 업데이트
-        if request.system_prompt:
-            # 새로운 시스템 메시지로 프롬프트 업데이트
-            system_message = SystemMessage(content=request.system_prompt)
-            conversation.prompt.messages[0] = system_message
-        
-        # AI 응답 생성
-        response = conversation.predict(input=request.message)
+        response_text = agent_result.get("response", "답변을 생성할 수 없습니다.")
         
         # AI 응답을 히스토리에 추가
-        session_manager.add_message_to_history(session_id, "assistant", response)
+        session_manager.add_message_to_history(session_id, "assistant", response_text)
         
         return ChatResponse(
-            response=response,
+            response=response_text,
             session_id=session_id,
             message_history=session_data["message_history"]
         )
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"채팅 처리 중 오류가 발생했습니다: {str(e)}")
 
 @app.post("/chat/multimodal")
@@ -184,7 +153,7 @@ async def multimodal_chat(
     image: Optional[UploadFile] = File(None)
 ):
     """
-    멀티모달 채팅 엔드포인트 (텍스트 + 이미지)
+    멀티모달 채팅 엔드포인트 (텍스트 + 이미지) - 에이전트 기반
     """
     try:
         # 세션 생성 또는 가져오기
@@ -197,6 +166,8 @@ async def multimodal_chat(
         # 이미지 처리
         image_description = ""
         image_base64 = None
+        image_url = None
+        
         if image:
             # 이미지 파일 읽기
             image_content = await image.read()
@@ -206,11 +177,10 @@ async def multimodal_chat(
                 pil_image = Image.open(io.BytesIO(image_content))
                 
                 # 이미지를 base64로 인코딩
-                import base64
                 image_base64 = base64.b64encode(image_content).decode('utf-8')
                 
                 # 이미지 정보 추출
-                image_description = f"\\n[업로드된 이미지 정보: 크기 {pil_image.size}, 포맷 {pil_image.format}]\\n"
+                image_description = f"\n[업로드된 이미지 정보: 크기 {pil_image.size}, 포맷 {pil_image.format}]\n"
                 
             except Exception as img_error:
                 image_description = f"이미지 처리 중 오류가 발생했습니다: {str(img_error)}"
@@ -223,23 +193,33 @@ async def multimodal_chat(
         # 사용자 메시지를 히스토리에 추가
         session_manager.add_message_to_history(session_id, "user", full_message)
         
-        # 이미지가 있는 경우 Vision 모델 사용
+        # 이미지가 있는 경우 Vision 모델로 직접 분석
         if image_base64:
             from langchain_openai import ChatOpenAI
+            from langchain_core.messages import HumanMessage
             
             # GPT-4 Vision 모델 사용
             vision_llm = ChatOpenAI(
-                model="gpt-4o",  # 이미지 분석 가능한 모델
+                model="gpt-4o",
                 temperature=0.7,
                 openai_api_key=os.getenv("OPENAI_API_KEY")
             )
             
             # 이미지와 함께 분석 요청
-            from langchain.schema import HumanMessage
-            
             vision_message = HumanMessage(
                 content=[
-                    {"type": "text", "text": message},
+                    {"type": "text", "text": f"""
+당신은 임산부 영양 전문가입니다.
+이미지를 분석하고 사용자의 질문에 답변해주세요.
+
+사용자 질문: {message}
+
+임산부 관점에서 이 음식의:
+1. 영양 정보
+2. 임산부에게 좋은 점
+3. 주의사항
+을 알려주세요.
+"""},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -251,9 +231,12 @@ async def multimodal_chat(
             
             response = vision_llm.invoke([vision_message]).content
         else:
-            # 텍스트만 있는 경우 기존 대화 체인 사용
-            conversation = session_data["conversation"]
-            response = conversation.predict(input=full_message)
+            # 텍스트만 있는 경우 에이전트 사용
+            agent_result = await session_manager.agent.run(
+                user_message=full_message,
+                thread_id=session_id
+            )
+            response = agent_result.get("response", "답변을 생성할 수 없습니다.")
         
         # AI 응답을 히스토리에 추가
         session_manager.add_message_to_history(session_id, "assistant", response)
@@ -266,6 +249,8 @@ async def multimodal_chat(
         }
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"멀티모달 채팅 처리 중 오류가 발생했습니다: {str(e)}")
 
 @app.get("/chat/history/{session_id}")
